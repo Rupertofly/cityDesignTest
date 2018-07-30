@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "outDir": "./dist/",
+    "module": "esnext",
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true,
+    "allowJs": false
+  },
+  "include": [
+    "node_modules/@types/**/*",
+    "src/**/*",
+    "./typings/*",
+    "node_modules/@firebase/**/*"
+  ]
+}
