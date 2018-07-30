@@ -77,6 +77,9 @@ declare module 'polygon-offset' {
         public offsetLine(dist: number): any[][];
     }
 }
+declare module 'd3plus-shape' {
+    export const largestRect: any;
+}
 declare module 'polygon-clipping' {
     /**
      * clips polygon plz work

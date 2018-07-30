@@ -21,12 +21,13 @@ const clip = [
     [ 808.5, 166 ],
     [ 654.5, 231 ]
 ] as pt[];
-
+let theCity;
 export function setup() {
     createCanvas( 860, 480 ).parent( '#canvas' );
     background( 55 );
-    const theCity = new City( polyPoints );
+    theCity = new City( polyPoints );
     theCity.drawFullCity();
+
 }
 
 export function draw() {
