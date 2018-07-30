@@ -77,6 +77,16 @@ declare module 'polygon-offset' {
         public offsetLine(dist: number): any[][];
     }
 }
+declare module 'polygon-clipping' {
+    /**
+     * clips polygon plz work
+     *
+     * @param {pt[]} subject
+     * @param {pt[]} clip
+     * @returns First point is repeatet
+     */
+    function intersection(subject: pt[], clip: pt[]): Array<pt[]>
+}
 declare interface Window extends p5 {
     qw: () => void;
 }
