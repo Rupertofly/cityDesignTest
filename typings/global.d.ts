@@ -1,3 +1,4 @@
+type pt = [number, number];
 declare class CCapture {
   constructor( {} );
   public start();
@@ -41,8 +42,15 @@ declare interface CanvasRenderingContext2D {
 declare module 'polygon-offset' {
   export default class Offset {
     constructor(vert?: any[], arc?: number);
-
-    public data(sites: any[]): this;
+    /**
+     * repeat first point
+     * @param sites 
+     */
+    public data( sites: any[] ): this;
+    /**
+     * repeat first point
+     * @param dist 
+     */
     public padding(dist: number): any[][];
     public offsetLine(dist: number): any[][];
   }
@@ -54,6 +62,23 @@ declare namespace p5 {
   export interface Graphics extends p5.Renderer {}
 }
 declare module 'greiner-hormann' {
-  var x: any;
-  export = x;
+  /**
+   * don't repeat first vertex
+   * @param source 
+   * @param clip 
+   */
+  function intersection( source, clip ): Array<pt[]>;
+  /**
+   * don't repeat first vertex
+   * @param source 
+   * @param clip 
+   */
+  function union( source, clip ): Array<pt[]>;
+  /**
+   * don't repeat first vertex
+   * @param source 
+   * @param clip 
+   */
+  function diff( source, clip ): Array<pt[]>;
+  
 }
