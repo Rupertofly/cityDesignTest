@@ -1,6 +1,5 @@
 /* eslint no-unused-vars: 0 */
 // @ts-ignore
-import * as CCapture from 'ccapture.js';
 import { polygonCentroid, range } from 'd3';
 import _ from 'lodash';
 type pnt = [number, number];
@@ -73,18 +72,18 @@ export function recordFrame() {
  * Set's up Recording
  *
  */
-// export function recordSetup() {
-//   // @ts-ignore
-//   recorder = new CCapture( {
-//     format: 'webm',
-//     framerate: 30,
-//     verbose: true
-//   } );
-//   console.log( 'beginning record' );
+export function recordSetup() {
+  // @ts-ignore
+  recorder = new CCapture( {
+    format: 'webm',
+    framerate: 30,
+    verbose: true
+  } );
+  console.log( 'beginning record' );
 
-//   canvasObject = document.getElementById( 'defaultCanvas0' );
-//   recorder.start();
-// }
+  canvasObject = document.getElementById( 'defaultCanvas0' );
+  recorder.start();
+}
 type pt = [number, number];
 function sqr( x: number ) {
     return x * x;

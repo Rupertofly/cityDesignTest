@@ -1,3 +1,4 @@
+import bs from 'b-spline';
 import * as d3 from 'd3';
 import * as d3v from 'd3-weighted-voronoi';
 import * as d3p from 'd3plus-shape';
@@ -10,6 +11,7 @@ import {
     arrayOpen,
     getMinDist
 } from './lib/helperFuncs';
+import { getC } from './lib/pallete';
 
 type pt = [number, number];
 /**
@@ -232,7 +234,7 @@ export class VPoint {
      */
     public pad = ( amount: number ) => {
         const closedPoly = arrayClose( this.pgon );
-        let padded = closedPoly
+        let padded = closedPoly;
         try {
             padded = new Offset()
                 .data( closedPoly )
@@ -241,7 +243,6 @@ export class VPoint {
             padded = closedPoly;
         }
         return arrayOpen( padded );
-
     };
     public isWVPoly<T>(
         sub: d3.VoronoiPolygon<T> | d3v.WVpoly<T>
@@ -272,13 +273,19 @@ export class City extends VPoint {
             .extent( this.extent() )
             .x( d => d.x )
             .y( d => d.y )
-            .weight( d => ( d.weight*4000 )+( 1/( d.x+_.random( 20 ) ) ) );
+            .weight(
+                d =>
+                    d.weight * 4000 +
+                    1 / ( d.x + _.random( 20 ) )
+            );
         const wardNo = 6;
         _.range( wardNo ).map( i => {
             const thisAng =
                 i * ( ( Math.PI * 2 ) / wardNo );
+            const thisWard = this.newWard( thisAng, i );
+            thisWard.culture = i;
             this.wards.push(
-                this.newWard( thisAng )
+                thisWard
             );
         } );
         this.vorDiag = this.vorFunc( this.wards );
@@ -287,14 +294,44 @@ export class City extends VPoint {
             poly.site.originalObject.pgon = poly.site.originalObject.clip(
                 this.pad( 10 )
             );
-            if ( d3.polygonArea( d3.polygonHull( poly.site.originalObject.pgon ) ) < 50 ) this.wards.splice( this.wards.indexOf( poly.site.originalObject ),1 ) ;
+            if (
+                d3.polygonArea(
+                    d3.polygonHull(
+                        poly.site.originalObject.pad(
+                            10
+                        )
+                    ) || [
+                        [ 0, 0 ],
+                        [ 1, 0 ],
+                        [ 1, 1 ],
+                        [ 0, 1 ]
+                    ]
+                ) < 200
+            ) {
+                this.wards.splice(
+                    this.wards.indexOf(
+                        poly.site.originalObject
+                    ),
+                    1
+                );
+            }
             poly.site.originalObject.initialiseVor();
         } );
     }
     public draw = () => {
-        const polyToDraw = this.pgon;
-        fill( 255 );
-        stroke( 0 );
+        const subdPoints = _.range( 200 ).map( i => {
+            return bs(
+                i/200,1,arrayClose( this.pgon )
+            )
+        } )
+        const polyToDraw = _.range( 100 ).map( i => {
+            return bs(
+                i/100,3,[ ...subdPoints,subdPoints.slice( 0,5 ) ]
+            )
+        } )
+
+        fill( getC( 2,6 ).hex );
+        noStroke( );
         strokeWeight( 2 );
         beginShape();
         polyToDraw.map( point =>
@@ -303,14 +340,34 @@ export class City extends VPoint {
         endShape( CLOSE );
     };
     public drawWards = () => {
-        this.wards.map( w => w.draw() );
+        this.wards.map( w => {
+            if ( !w.pgon ) return;
+            if (
+                d3.polygonContains(
+                    this.pgon,
+                    w.getCenteroid()
+                )
+            ) {
+                w.draw();
+            }
+        } );
     };
     public drawBuildings = () => {
-        this.wards.map( w => w.drawBuildings() );
+        this.wards.map( w => {
+            if ( !w.pgon ) return;
+            if (
+                d3.polygonContains(
+                    this.pgon,
+                    d3.polygonCentroid( w.pgon )
+                )
+            ) {
+                w.drawBuildings();
+            }
+        } );
     };
     public drawFullCity = () => {
         this.draw();
-        this.drawWards();
+        // this.drawWards();
         this.drawBuildings();
     };
     /**
@@ -319,14 +376,18 @@ export class City extends VPoint {
      * @private
      * @memberof City
      */
-    private newWard = ( ang: number ) => {
+  
+    public relaxAllWards = () => {
+        this.wards.map( ward => ward.relax( 1 ) );
+    }
+    private newWard = ( ang: number, w: number ) => {
         const newPos = createVector(
             0,
             -1 * ( this.range / 2 )
         )
             .rotate( ang )
             .add( this.posToVec() );
-        return new Ward( newPos.x, newPos.y );
+        return new Ward( newPos.x, newPos.y, w );
     };
 }
 
@@ -334,10 +395,12 @@ export class Ward extends VPoint {
     public buildings: Building[];
     public vorDiag: d3.VoronoiDiagram<Building>;
     public weight: number;
+    public culture: number;
     private vorFunc: d3.VoronoiLayout<Building>;
     constructor(
         x: number,
         y: number,
+        w: number,
         pgon?: d3.VoronoiPolygon<VPoint>
     ) {
         super( x, y );
@@ -345,7 +408,7 @@ export class Ward extends VPoint {
             this.pgon = pgon;
             this.initialiseVor();
         }
-        this.weight = _.random( -5, 5 );
+        this.weight = -3 + ( w*8 );
     }
     public initialiseVor = () => {
         if ( !this.pgon ) {
@@ -358,7 +421,10 @@ export class Ward extends VPoint {
                 0,
                 this.pgon.length - 1
             );
-            tempArr.data = ( this.pgon as d3.VoronoiPolygon<Ward> ).data;
+            tempArr.data = ( this
+                .pgon as d3.VoronoiPolygon<
+                Ward
+            > ).data;
             this.pgon = tempArr;
         }
         this.vorFunc = d3
@@ -386,18 +452,34 @@ export class Ward extends VPoint {
                 .setMag( mag )
                 .add( this.posToVec() )
                 .array();
+            const thisB = new Building( newPos[0], newPos[1] );
+            if ( this.culture != null ) { thisB.colour = this.culture };
+            thisB.shade = _.random( 3, 5 );
             this.buildings.push(
-                new Building( newPos[0], newPos[1] )
+                thisB
             );
         } );
         this.vorDiag = this.vorFunc(
             this.buildings
         );
-        this.relax( 16 );
+        this.relax( 1 );
+        
+    };
+    public relax = ( count: number ) => {
+        for ( let i = 0; i < count; i++ ) {
+            try {
+                this.genVorDiag();
+            } catch {
+                console.log( 'failed' );
+            }
+        }
     };
     public draw = () => {
         if ( !this.pgon ) return;
         const polyToDraw = this.pad( 10 );
+        if ( d3.polygonArea( polyToDraw ) < 200 ) {
+            return;
+        }
         fill( 255 );
         stroke( 0 );
         strokeWeight( 2 );
@@ -409,7 +491,17 @@ export class Ward extends VPoint {
     };
     public drawBuildings = () => {
         if ( !this.buildings ) return;
-        this.buildings.map( b => b.draw() );
+        this.buildings.map( b => {
+            if ( !b.pgon ) return;
+            if (
+                d3.polygonContains(
+                    this.pgon,
+                    b.getCenteroid()
+                )
+            ) {
+                b.draw();
+            }
+        } );
     };
     private genVorDiag = () => {
         this.vorDiag = this.vorFunc(
@@ -420,27 +512,33 @@ export class Ward extends VPoint {
             polygon.data.pgon = polygon.data.clip(
                 this.pad( 10 )
             );
-            if ( d3.polygonContains( polygon.data.pgon, polygon.data.posToArray() ) ) {
-            polygon.data.posFromArray(
-                d3.polygonCentroid(
-                    polygon.data.pgon
+            if (
+                d3.polygonContains(
+                    polygon.data.pgon,
+                    polygon.data.posToArray()
                 )
-            );
+            ) {
+                polygon.data.posFromArray(
+                    d3.polygonCentroid(
+                        polygon.data.pgon
+                    )
+                );
             } else {
-                this.buildings.splice( this.buildings.indexOf( polygon.data ), 1 );
+                this.buildings.splice(
+                    this.buildings.indexOf(
+                        polygon.data
+                    ),
+                    1
+                );
             }
         } );
     };
-    private relax = ( count: number ) => {
-        for ( let i = 0; i < count; i++ ) {
-            try {
-                this.genVorDiag();
-            } catch {console.log( 'failed' ) }
-        }
-    };
+
 }
 
 export class Building extends VPoint {
+    public colour: number
+    public shade: number;
     constructor(
         x: number,
         y: number,
@@ -452,16 +550,22 @@ export class Building extends VPoint {
     public draw = () => {
         if ( !this.pgon ) return;
         const polyToDraw = d3p.largestRect(
-            this.pgon
-        ).points;
-        const u = d3p;
-        fill( 255 );
-        stroke( 0 );
-        strokeWeight( 2 );
-        beginShape();
-        polyToDraw.map( point =>
-            vertex.apply( this, point )
+            this.pgon,
+            {
+                maxAspectRatio: 1.1,
+                angle: d3.range( -90, 90, 45 ),
+                nTries: 100
+            }
         );
-        endShape( CLOSE );
+        this.colour == null || this.shade == null ? fill( 255 ) : fill( getC( 3 + this.colour * 2,this.shade ).hex );
+        if ( polyToDraw.area < 400 ) return; 
+        noStroke( );
+        strokeWeight( 2 );
+        push();
+        translate( polyToDraw.cx, polyToDraw.cy );
+        rotate( radians( polyToDraw.angle ) );
+        rectMode( CENTER );
+        rect( 0, 0, polyToDraw.width, polyToDraw.height, 5 );
+        pop();
     };
 }
