@@ -7,11 +7,10 @@ import { City, VPoint } from './classes';
 import * as hf from './lib/helperFuncs';
 type pt = [number, number];
 const polyPoints = [
-    [ 108.5, 41 ],
-    [ 55.5, 375 ],
-    [ 484.5, 427 ],
-    [ 798.5, 408 ],
-    [ 808.5, 166 ]
+    [ 5, 5 ],
+    [ 855, 5 ],
+    [ 855, 475 ],
+    [ 5, 475 ]
 ] as pt[];
 const clip = [
     [ 108.5, 241 ],
@@ -21,20 +20,33 @@ const clip = [
     [ 808.5, 166 ],
     [ 654.5, 231 ]
 ] as pt[];
-let theCity;
+let theCity: City;
+const cityarr = [];
+let errorcount = 0;
+let itercount = 0;
 export function setup() {
     createCanvas( 860, 480 ).parent( '#canvas' );
     background( 55 );
-    theCity = new City( polyPoints );
-    theCity.drawFullCity();
 
+    errorcount = 0;
 }
 
 export function draw() {
-    
+    errorcount = 0;
+    itercount++;
+    try {
+        const c = new City( polyPoints );
+        c.drawFullCity();
+        cityarr.push( c );
+    } finally {}
+
+    console.log( 'nope' );
+    console.log( `errors: ${errorcount}` );
+    errorcount++;
+
+    console.log( `iterations: ${itercount}` );
+    if ( itercount > 100 ) noLoop();
 }
 
 export function mousePressed() {}
-export function keyReleased() {
-   
-}
+export function keyReleased() {}

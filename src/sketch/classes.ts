@@ -1,10 +1,15 @@
 import * as d3 from 'd3';
-import * as d3p from 'd3plus-shape'
+import * as d3v from 'd3-weighted-voronoi';
+import * as d3p from 'd3plus-shape';
 import * as pc from 'greiner-hormann';
 import _ from 'lodash';
 import Offset from 'polygon-offset';
 import { relativeTimeThreshold } from '../../node_modules/moment/moment';
-import { arrayClose, arrayOpen, getMinDist } from './lib/helperFuncs';
+import {
+    arrayClose,
+    arrayOpen,
+    getMinDist
+} from './lib/helperFuncs';
 
 type pt = [number, number];
 /**
@@ -15,7 +20,9 @@ type pt = [number, number];
 export class VPoint {
     public x: number;
     public y: number;
-    public pgon: d3.VoronoiPolygon<VPoint>;
+    public pgon:
+        | d3.VoronoiPolygon<VPoint>
+        | d3v.WVpoly<VPoint>;
     /**
      * Creates an instance of VPoint.
      * @param x
@@ -23,7 +30,13 @@ export class VPoint {
      * @param [pgon] optional create polygon
      * @memberof VPoint
      */
-    constructor( x: number, y: number, pgon?: d3.VoronoiPolygon<VPoint> ) {
+    constructor(
+        x: number,
+        y: number,
+        pgon?:
+            | d3.VoronoiPolygon<VPoint>
+            | d3v.WVpoly<VPoint>
+    ) {
         this.x = x;
         this.y = y;
         this.pgon = pgon ? pgon : null;
@@ -41,10 +54,17 @@ export class VPoint {
      * @returns position
      * @memberof VPoint
      */
-    public posToArray = () => [ this.x, this.y ] as pt;
+    public posToArray = () =>
+        [ this.x, this.y ] as pt;
 
-    public pgonToArray = ( pgon?: d3.VoronoiPolygon<VPoint> ) => {
-        if ( pgon ) return this.pgonToArray.apply( { pgon } ) as pt[];
+    public pgonToArray = (
+        pgon?: d3.VoronoiPolygon<VPoint>
+    ) => {
+        if ( pgon ) {
+            return this.pgonToArray.apply( {
+                pgon
+            } ) as pt[];
+        }
         const arr: pt[] = [];
         this.pgon.map( p => arr.push( p ) );
         return arr as pt[];
@@ -55,7 +75,8 @@ export class VPoint {
      *
      * @memberof VPoint
      */
-    public posToVec = () => createVector( this.x, this.y );
+    public posToVec = () =>
+        createVector( this.x, this.y );
     /**
      * sets the position of this point from a vector
      * @param vec vector to set pos from
@@ -73,15 +94,29 @@ export class VPoint {
      */
     public size = () => {
         if ( !this.pgon ) {
-            throw new Error( 'no polygon registered' );
+            throw new Error(
+                'no polygon registered'
+            );
         }
         return [
             // x
-            Math.max.apply( this, this.pgon.map( p => p[0] ) ) -
-                Math.min.apply( this, this.pgon.map( p => p[0] ) ),
+            Math.max.apply(
+                this,
+                this.pgon.map( p => p[0] )
+            ) -
+                Math.min.apply(
+                    this,
+                    this.pgon.map( p => p[0] )
+                ),
             // y
-            Math.max.apply( this, this.pgon.map( p => p[1] ) ) -
-                Math.min.apply( this, this.pgon.map( p => p[1] ) )
+            Math.max.apply(
+                this,
+                this.pgon.map( p => p[1] )
+            ) -
+                Math.min.apply(
+                    this,
+                    this.pgon.map( p => p[1] )
+                )
         ] as pt;
     };
     get range() {
@@ -100,22 +135,36 @@ export class VPoint {
             } ) as [pt, pt];
         }
         if ( !this.pgon ) {
-            throw new Error( 'no polygon registered' );
+            throw new Error(
+                'no polygon registered'
+            );
         }
         return [
             // top left
             [
                 // x
-                Math.min.apply( this, this.pgon.map( p => p[0] ) ),
+                Math.min.apply(
+                    this,
+                    this.pgon.map( p => p[0] )
+                ),
                 // y
-                Math.min.apply( this, this.pgon.map( p => p[1] ) )
+                Math.min.apply(
+                    this,
+                    this.pgon.map( p => p[1] )
+                )
             ],
             // top right
             [
                 // x
-                Math.max.apply( this, this.pgon.map( p => p[0] ) ),
+                Math.max.apply(
+                    this,
+                    this.pgon.map( p => p[0] )
+                ),
                 // y
-                Math.max.apply( this, this.pgon.map( p => p[1] ) )
+                Math.max.apply(
+                    this,
+                    this.pgon.map( p => p[1] )
+                )
             ]
         ] as [pt, pt];
     };
@@ -124,22 +173,40 @@ export class VPoint {
      * @param clippingPolygon polygon to clip by
      * @memberof VPoint
      */
+
     public clip = ( clippingPgon: pt[] ) => {
-        const subject = arrayOpen( this.pgonToArray() );
-        const clippy = arrayOpen( d3.polygonHull( clippingPgon ) );
+        const subject = arrayOpen(
+            this.pgonToArray()
+        );
+        const clippy = arrayOpen(
+            d3.polygonHull( clippingPgon )
+        );
         let clipped: any = pc.intersection(
             subject,
             clippy
         );
         if ( !clipped ) return this.pgon;
         clipped = clipped[0];
-        const clipPoly = arrayOpen( clipped ) as d3.VoronoiPolygon<VPoint>;
-        clipPoly.data = this.pgon.data;
-        return clipPoly;
+        const clipPoly = arrayOpen( clipped );
+        if ( this.isWVPoly( this.pgon ) ) {
+            ( clipPoly as d3v.WVpoly<
+                VPoint
+            > ).site = this.pgon.site;
+        } else {
+            ( clipPoly as d3.VoronoiPolygon<
+                VPoint
+            > ).data = this.pgon.data;
+        }
+
+        return clipPoly as
+            | d3.VoronoiPolygon<VPoint>
+            | d3v.WVpoly<VPoint>;
     };
     public getCenteroid = () => {
         if ( !this.pgon ) {
-            throw new Error( 'no polygon registered' );
+            throw new Error(
+                'no polygon registered'
+            );
         }
         return d3.polygonCentroid( this.pgon );
     };
@@ -148,8 +215,12 @@ export class VPoint {
      * @param array polygon to set from
      * @memberof VPoint
      */
-    public polygonFromVirginArray = ( array: pt[] ) => {
-        const newPoly = array as d3.VoronoiPolygon<VPoint>;
+    public polygonFromVirginArray = (
+        array: pt[]
+    ) => {
+        const newPoly = array as d3.VoronoiPolygon<
+            VPoint
+        >;
         newPoly.data = this;
         this.pgon = newPoly;
     };
@@ -160,39 +231,64 @@ export class VPoint {
      * @memberof VPoint
      */
     public pad = ( amount: number ) => {
-        const closedPoly = arrayClose( this.pgon )
-        const padded = new Offset().data( closedPoly ).padding( amount )[0];
+        const closedPoly = arrayClose( this.pgon );
+        let padded = closedPoly
+        try {
+            padded = new Offset()
+                .data( closedPoly )
+                .padding( amount )[0];
+        } catch {
+            padded = closedPoly;
+        }
         return arrayOpen( padded );
+
     };
+    public isWVPoly<T>(
+        sub: d3.VoronoiPolygon<T> | d3v.WVpoly<T>
+    ): sub is d3v.WVpoly<T> {
+        return (
+            ( sub as d3v.WVpoly<T> ).site !==
+            undefined
+        );
+    }
 }
 export class City extends VPoint {
     public wards: Ward[];
-    public vorDiag: d3.VoronoiDiagram<Ward>;
+    public vorDiag: Array<d3v.WVpoly<Ward>>;
 
-    private vorFunc: d3.VoronoiLayout<Ward>;
+    private vorFunc: d3v.WeightedVoronoi<Ward>;
     constructor( pgon: pt[] ) {
-        super( 0, 0, pgon as d3.VoronoiPolygon<City> );
+        super( 0, 0, pgon as d3v.WVpoly<Ward> );
         const cen = d3.polygonCentroid( pgon );
-        const vPoly: d3.VoronoiPolygon<City> = pgon as d3.VoronoiPolygon<City>;
+        const vPoly: d3.VoronoiPolygon<
+            City
+        > = pgon as d3.VoronoiPolygon<City>;
         vPoly.data = this;
         this.pgon = vPoly;
         this.wards = [];
         this.posFromArray( cen );
-        this.vorFunc = d3
-            .voronoi<Ward>()
-            .extent( this.extent( this.pad( 10 ) ) )
+        this.vorFunc = d3v
+            .weightedVoronoi<Ward>()
+            .extent( this.extent() )
             .x( d => d.x )
-            .y( d => d.y );
+            .y( d => d.y )
+            .weight( d => ( d.weight*4000 )+( 1/( d.x+_.random( 20 ) ) ) );
         const wardNo = 6;
         _.range( wardNo ).map( i => {
-            const thisAng = i * ( ( Math.PI * 2 ) / wardNo );
-            this.wards.push( this.newWard( thisAng ) );
+            const thisAng =
+                i * ( ( Math.PI * 2 ) / wardNo );
+            this.wards.push(
+                this.newWard( thisAng )
+            );
         } );
         this.vorDiag = this.vorFunc( this.wards );
-        this.vorDiag.polygons().map( poly => {
-            poly.data.pgon = poly;
-            poly.data.pgon = poly.data.clip( this.pad( 10 ) );
-            poly.data.initialiseVor();
+        this.vorDiag.map( poly => {
+            poly.site.originalObject.pgon = poly;
+            poly.site.originalObject.pgon = poly.site.originalObject.clip(
+                this.pad( 10 )
+            );
+            if ( d3.polygonArea( d3.polygonHull( poly.site.originalObject.pgon ) ) < 50 ) this.wards.splice( this.wards.indexOf( poly.site.originalObject ),1 ) ;
+            poly.site.originalObject.initialiseVor();
         } );
     }
     public draw = () => {
@@ -201,11 +297,13 @@ export class City extends VPoint {
         stroke( 0 );
         strokeWeight( 2 );
         beginShape();
-        polyToDraw.map( point => vertex.apply( this, point ) );
+        polyToDraw.map( point =>
+            vertex.apply( this, point )
+        );
         endShape( CLOSE );
     };
     public drawWards = () => {
-        this.wards.map( w => w.draw );
+        this.wards.map( w => w.draw() );
     };
     public drawBuildings = () => {
         this.wards.map( w => w.drawBuildings() );
@@ -222,7 +320,10 @@ export class City extends VPoint {
      * @memberof City
      */
     private newWard = ( ang: number ) => {
-        const newPos = createVector( 0, -1 * this.range - 10 )
+        const newPos = createVector(
+            0,
+            -1 * ( this.range / 2 )
+        )
             .rotate( ang )
             .add( this.posToVec() );
         return new Ward( newPos.x, newPos.y );
@@ -232,84 +333,135 @@ export class City extends VPoint {
 export class Ward extends VPoint {
     public buildings: Building[];
     public vorDiag: d3.VoronoiDiagram<Building>;
-
+    public weight: number;
     private vorFunc: d3.VoronoiLayout<Building>;
-    constructor( x: number, y: number, pgon?: d3.VoronoiPolygon<VPoint> ) {
+    constructor(
+        x: number,
+        y: number,
+        pgon?: d3.VoronoiPolygon<VPoint>
+    ) {
         super( x, y );
         if ( pgon ) {
             this.pgon = pgon;
             this.initialiseVor();
         }
+        this.weight = _.random( -5, 5 );
     }
     public initialiseVor = () => {
         if ( !this.pgon ) {
             throw new Error( 'no polygon dummy' );
-        } else if ( this.pgon[0] === this.pgon[this.pgon.length - 1] ) {
-            const tempArr: any = this.pgon.slice( 0, this.pgon.length - 1 );
-            tempArr.data = this.pgon.data;
+        } else if (
+            this.pgon[0] ===
+            this.pgon[this.pgon.length - 1]
+        ) {
+            const tempArr: any = this.pgon.slice(
+                0,
+                this.pgon.length - 1
+            );
+            tempArr.data = ( this.pgon as d3.VoronoiPolygon<Ward> ).data;
             this.pgon = tempArr;
         }
         this.vorFunc = d3
             .voronoi<Building>()
-            .extent( this.extent( this.pad( 10 ) ) )
+            .extent( this.extent( this.pgon ) )
             .x( d => d.x )
             .y( d => d.y );
-        const buildCount = Math.floor( d3.polygonArea( this.pgon ) / 3000 );
+        const buildCount = Math.floor(
+            d3.polygonArea( this.pgon ) / 3000
+        );
         this.buildings = [];
+        this.posFromArray(
+            d3.polygonCentroid( this.pad( 2 ) )
+        );
         _.range( buildCount ).map( () => {
-            const ang = _.random( Math.PI * 2, true );
-            const mag = _.random( Math.min( 20, this.range-10 ) );
+            const ang = _.random(
+                Math.PI * 2,
+                true
+            );
+            const mag = _.random(
+                Math.min( 20, this.range - 10 )
+            );
             const newPos = createVector( 0, -1 )
                 .rotate( ang )
                 .setMag( mag )
                 .add( this.posToVec() )
                 .array();
-            this.buildings.push( new Building( newPos[0], newPos[1] ) );
+            this.buildings.push(
+                new Building( newPos[0], newPos[1] )
+            );
         } );
-        this.vorDiag = this.vorFunc( this.buildings );
-        this.relax( 32 );
+        this.vorDiag = this.vorFunc(
+            this.buildings
+        );
+        this.relax( 16 );
     };
     public draw = () => {
+        if ( !this.pgon ) return;
         const polyToDraw = this.pad( 10 );
         fill( 255 );
         stroke( 0 );
         strokeWeight( 2 );
         beginShape();
-        polyToDraw.map( point => vertex.apply( this, point ) );
+        polyToDraw.map( point =>
+            vertex.apply( this, point )
+        );
         endShape( CLOSE );
     };
     public drawBuildings = () => {
+        if ( !this.buildings ) return;
         this.buildings.map( b => b.draw() );
     };
     private genVorDiag = () => {
-        this.vorDiag = this.vorFunc( this.buildings );
+        this.vorDiag = this.vorFunc(
+            this.buildings
+        );
         this.vorDiag.polygons().map( polygon => {
             polygon.data.pgon = polygon;
-            polygon.data.pgon = polygon.data.clip( this.pad( 10 ) );
-            polygon.data.posFromArray( d3.polygonCentroid( polygon.data.pgon ) );
+            polygon.data.pgon = polygon.data.clip(
+                this.pad( 10 )
+            );
+            if ( d3.polygonContains( polygon.data.pgon, polygon.data.posToArray() ) ) {
+            polygon.data.posFromArray(
+                d3.polygonCentroid(
+                    polygon.data.pgon
+                )
+            );
+            } else {
+                this.buildings.splice( this.buildings.indexOf( polygon.data ), 1 );
+            }
         } );
     };
     private relax = ( count: number ) => {
         for ( let i = 0; i < count; i++ ) {
-            this.genVorDiag();
+            try {
+                this.genVorDiag();
+            } catch {console.log( 'failed' ) }
         }
     };
 }
 
 export class Building extends VPoint {
-    constructor( x: number, y: number, pgon?: d3.VoronoiPolygon<VPoint> ) {
+    constructor(
+        x: number,
+        y: number,
+        pgon?: d3.VoronoiPolygon<VPoint>
+    ) {
         super( x, y );
         if ( pgon ) this.pgon = pgon;
     }
     public draw = () => {
         if ( !this.pgon ) return;
-        const polyToDraw = d3p.largestRect( this.pad( 1 ) ).points
+        const polyToDraw = d3p.largestRect(
+            this.pgon
+        ).points;
         const u = d3p;
         fill( 255 );
         stroke( 0 );
         strokeWeight( 2 );
         beginShape();
-        polyToDraw.map( point => vertex.apply( this, point ) );
+        polyToDraw.map( point =>
+            vertex.apply( this, point )
+        );
         endShape( CLOSE );
     };
 }
